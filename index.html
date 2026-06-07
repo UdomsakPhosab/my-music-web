@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Music List</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>My Music List</h1>
+        <p class="subtitle">Shared playlist with public viewing and admin-only edits.</p>
+      </header>
+
+      <section class="card" aria-labelledby="auth-title">
+        <h2 id="auth-title">Admin Access</h2>
+        <form id="auth-form" class="inline-form">
+          <label class="field">
+            Email
+            <input id="email" type="email" autocomplete="email" required />
+          </label>
+          <label class="field">
+            Password
+            <input id="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Sign in</button>
+          <button id="sign-out" type="button" class="secondary">Sign out</button>
+        </form>
+        <p id="auth-status" class="status">Public mode</p>
+      </section>
+
+      <section id="admin-panel" class="card hidden" aria-labelledby="add-title">
+        <h2 id="add-title">Add Song (Admin)</h2>
+        <form id="song-form">
+          <label class="field">
+            Title
+            <input id="song-title" type="text" maxlength="120" required />
+          </label>
+          <label class="field">
+            URL (YouTube / Spotify / SoundCloud)
+            <input id="song-url" type="url" placeholder="https://..." required />
+          </label>
+          <button type="submit">Add song</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="songs-title">
+        <h2 id="songs-title">Songs</h2>
+        <p id="songs-empty" class="status">Loading songs...</p>
+        <ul id="songs-list" class="songs"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
