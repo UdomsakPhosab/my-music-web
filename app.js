@@ -29,27 +29,31 @@ const signOutButton = document.querySelector("#sign-out");
 const authStatus = document.querySelector("#auth-status");
 const adminPanel = document.querySelector("#admin-panel");
 const songForm = document.querySelector("#song-form");
+const songStatus = document.querySelector("#song-status");
 const songsList = document.querySelector("#songs-list");
 const songsEmpty = document.querySelector("#songs-empty");
 
 let currentUser = null;
 let isAdmin = false;
 
-function getPlatform(url) {
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
-  if (url.includes("spotify.com")) return "Spotify";
-  if (url.includes("soundcloud.com")) return "SoundCloud";
-  return "Link";
-}
-
-function isAllowedSongUrl(urlText) {
+function parseSongHost(urlText) {
   try {
     const parsed = new URL(urlText);
-    const host = parsed.hostname.toLowerCase();
-    return allowedHosts.some((allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`));
+    return parsed.hostname.toLowerCase();
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isAllowedHost(host) {
+  return allowedHosts.some((allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`));
+}
+
+function getPlatformFromHost(host) {
+  if (host === "youtube.com" || host === "youtu.be" || host.endsWith(".youtube.com")) return "YouTube";
+  if (host === "spotify.com" || host.endsWith(".spotify.com")) return "Spotify";
+  if (host === "soundcloud.com" || host.endsWith(".soundcloud.com")) return "SoundCloud";
+  return "Link";
 }
 
 function updateAuthUI() {
@@ -73,6 +77,7 @@ function renderSongs(docs) {
 
   docs.forEach((songDoc) => {
     const data = songDoc.data();
+    const host = parseSongHost(data.url || "");
     const li = document.createElement("li");
     li.className = "song-item";
 
@@ -85,10 +90,16 @@ function renderSongs(docs) {
 
     const link = document.createElement("a");
     link.className = "song-link";
-    link.href = data.url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = `Open on ${data.platform}`;
+
+    if (host && isAllowedHost(host)) {
+      link.href = data.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = `Open on ${data.platform || getPlatformFromHost(host)}`;
+    } else {
+      link.removeAttribute("href");
+      link.textContent = "Unsupported link";
+    }
 
     main.appendChild(title);
     main.appendChild(link);
@@ -100,7 +111,12 @@ function renderSongs(docs) {
       deleteButton.className = "delete";
       deleteButton.textContent = "Delete";
       deleteButton.addEventListener("click", async () => {
-        await deleteDoc(doc(db, "songs", songDoc.id));
+        try {
+          await deleteDoc(doc(db, "songs", songDoc.id));
+        } catch (error) {
+          console.error("Delete song failed", error);
+          songStatus.textContent = "Delete failed. Check permissions.";
+        }
       });
       li.appendChild(deleteButton);
     }
@@ -116,7 +132,8 @@ authForm.addEventListener("submit", async (event) => {
 
   try {
     await signInWithEmailAndPassword(auth, email, password);
-  } catch {
+  } catch (error) {
+    console.error("Sign-in failed", error);
     authStatus.textContent = "Sign-in failed. Check credentials.";
   }
 });
@@ -135,20 +152,26 @@ songForm.addEventListener("submit", async (event) => {
   const urlInput = document.querySelector("#song-url");
   const title = titleInput.value.trim();
   const url = urlInput.value.trim();
+  const host = parseSongHost(url);
 
-  if (!title || !isAllowedSongUrl(url)) {
-    authStatus.textContent = "Please add a title and a valid YouTube/Spotify/SoundCloud URL.";
+  if (!title || !host || !isAllowedHost(host)) {
+    songStatus.textContent = "Please add a title and a valid YouTube/Spotify/SoundCloud URL.";
     return;
   }
 
-  await addDoc(collection(db, "songs"), {
-    title,
-    url,
-    platform: getPlatform(url),
-    createdAt: serverTimestamp(),
-  });
-
-  songForm.reset();
+  try {
+    await addDoc(collection(db, "songs"), {
+      title,
+      url,
+      platform: getPlatformFromHost(host),
+      createdAt: serverTimestamp(),
+    });
+    songStatus.textContent = "Song added.";
+    songForm.reset();
+  } catch (error) {
+    console.error("Add song failed", error);
+    songStatus.textContent = "Add failed. Check permissions.";
+  }
 });
 
 onAuthStateChanged(auth, (user) => {
